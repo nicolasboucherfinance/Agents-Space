@@ -122,4 +122,20 @@ if uploaded_file:
         The tone should be formal and executive-friendly.
 
         Here is the analysis:
-        {ai_comment_
+        {ai_commentary}
+        """
+
+        email_response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a strategic finance expert skilled at writing executive-level communication."},
+                {"role": "user", "content": email_prompt}
+            ],
+            model="llama3-8b-8192",
+        )
+
+        email_body = email_response.choices[0].message.content
+        st.text_area("✉️ Email Draft", value=email_body, height=300)
+        st.download_button("📥 Download Email as .txt", email_body, file_name="insight_email.txt")
+
+    except Exception as e:
+        st.error(f"Something went wrong: {e}")
