@@ -14,9 +14,9 @@ if not GROQ_API_KEY:
     st.stop()
 
 # Streamlit UI Setup
-st.set_page_config(page_title="Customizable Sankey Generator", page_icon="🔀", layout="wide")
-st.title("🔀 Customizable Sankey Chart from Excel")
-st.write("Upload an Excel file and choose which columns to use as Sankey nodes.")
+st.set_page_config(page_title="Sankey Analyzer + Email Insights", page_icon="📧", layout="wide")
+st.title("📈 Custom Sankey Chart + AI Email Generator")
+st.write("Upload your Excel file, choose flow columns, and generate a Sankey diagram with shareable insights.")
 
 uploaded_file = st.file_uploader("📤 Upload Excel File", type=["xlsx", "xls"])
 
@@ -25,39 +25,33 @@ if uploaded_file:
         df = pd.read_excel(uploaded_file)
         st.success("✅ File uploaded successfully.")
 
-        # Show column headers
+        # Column selection
         headers = df.columns.tolist()
-        st.markdown("### 🧩 Select Columns for the Sankey Flow")
+        st.markdown("### 🧩 Select Columns for Sankey Nodes")
         selected_columns = st.multiselect(
             "Pick the sequence of columns (at least 2):",
             options=headers,
             default=headers[:2] if len(headers) >= 2 else []
         )
 
-        # Validation
         if len(selected_columns) < 2:
             st.warning("Please select at least two columns.")
             st.stop()
 
         st.markdown("### 📊 Sankey Chart")
 
-        # Build Sankey data structure
         sankey_df = df[selected_columns].dropna()
-        all_nodes = pd.Series(dtype=str)
         labels = []
         label_to_index = {}
-
-        # Assign numeric index to each unique node label
         index = 0
+
         for col in selected_columns:
-            unique_values = sankey_df[col].unique()
-            for val in unique_values:
+            for val in sankey_df[col].unique():
                 if val not in label_to_index:
                     label_to_index[val] = index
                     labels.append(val)
                     index += 1
 
-        # Build source-target-value triplets
         source = []
         target = []
         value = []
@@ -65,13 +59,10 @@ if uploaded_file:
         for i in range(len(selected_columns) - 1):
             grouped = sankey_df.groupby([selected_columns[i], selected_columns[i + 1]]).size().reset_index(name='count')
             for _, row in grouped.iterrows():
-                src = label_to_index[row[selected_columns[i]]]
-                tgt = label_to_index[row[selected_columns[i + 1]]]
-                source.append(src)
-                target.append(tgt)
+                source.append(label_to_index[row[selected_columns[i]]])
+                target.append(label_to_index[row[selected_columns[i + 1]]])
                 value.append(row['count'])
 
-        # Sankey plot
         fig = go.Figure(data=[go.Sankey(
             node=dict(
                 pad=20,
@@ -95,7 +86,7 @@ if uploaded_file:
 
         grouped_data_json = sankey_df[selected_columns].value_counts().reset_index(name='count').to_json(orient="records")
 
-        prompt = f"""
+        ai_prompt = f"""
         You are a business analyst. Here is a flow of data between the following stages:
         {selected_columns}
 
@@ -111,13 +102,24 @@ if uploaded_file:
         response = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": "You are a data flow and business analysis expert."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": ai_prompt}
             ],
             model="llama3-8b-8192",
         )
 
         ai_commentary = response.choices[0].message.content
+        st.markdown("#### 📘 AI Insight")
         st.write(ai_commentary)
 
-    except Exception as e:
-        st.error(f"Something went wrong: {e}")
+        # --- Generate Email ---
+        st.markdown("### 📧 Email Draft to Share Insights")
+
+        email_prompt = f"""
+        Write a concise, professional email to a CFO that summarizes the analysis of this data flow. Use the Pyramid Principle:
+        - Start with the key insight
+        - Then explain the main observations
+        - Close with recommendations
+        The tone should be formal and executive-friendly.
+
+        Here is the analysis:
+        {ai_comment_
